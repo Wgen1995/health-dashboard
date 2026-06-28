@@ -8,7 +8,7 @@
 |------|------|
 | §1 设计哲学总览表 | 8 类 32 项, 一表看全 |
 | §2 机制分类矩阵 | 按问题维度分类, 速查某问题对应机制 |
-| §3 反幻觉约束全景表 | 59 条按 Phase 分类 |
+| §3 反幻觉约束全景表 | 56 条按 Phase 分类(编号 1-59, 12-14 占位) |
 | §4 Pipeline 9 阶段全景表 | 阶段-输入-产出-预算 |
 | §5 子技能清单矩阵 | 17 skill 一查 |
 | §6 知识库/规则库一览 | 各库文件用途 |
@@ -36,7 +36,7 @@
 | modular-graph-temp-expand | 方法级临时展开 | Scale Adaptation | 全方法图 Gb 内存爆 | 模块级持久, sink 触达临时 5 跳方法链用后弃 | SourceCPT 原创 | 4a | SRC_ACCESS.md |
 | file-chunking | 文件分块 | Scale Adaptation | 大文件被截断 | 500 行/块, 函数边界, 5 行重叠 | SourceCPT 原创 | 2b | SRC_ACCESS.md |
 | increment-mode | 增量模式 | Scale Adaptation | 300w 不能每日全审 | git diff + 调用图邻居 ~5% | loop 借鉴改造 | 全局 | BASELINE_DIFF.md |
-| anti-hallucination-system | 59 条反幻觉约束 | Anti-Hallucination | LLM 编造漏洞证据 | 举证责任在 LLM, 证据不完整降级 | GenCPT 10+49 扩展 | 全局 | ANTI_HALLUCINATION.md |
+| anti-hallucination-system | 56 条反幻觉约束 | Anti-Hallucination | LLM 编造漏洞证据 | 举证责任在 LLM, 证据不完整降级 | GenCPT 10+46 扩展(含 3 占位) | 全局 | ANTI_HALLUCINATION.md |
 | disproof-mandatory-check | 证伪必检 | Anti-Hallucination | 模式命中不一定是漏洞 | 规则第 6 段证伪必检查 | SourceCPT 原创 | 2a/4a | vuln-rules/* |
 | non-vuln-scenarios-filter | 假阳性库前置 | Anti-Hallucination | 误报高 | VULN 判定前对照库命中即 [-] | 落地材料+原创 | 6 | non-vuln-scenarios.md |
 | triple-library-association | 三库联动 | Anti-Hallucination | 静态库不覆盖组合 | 三库静态 + LLM 补盲 | GenCPT 借鉴 | 3 | hypothesis-libraries/ |
@@ -74,7 +74,7 @@
 
 ---
 
-## §3 反幻觉约束全景表(59条)
+## §3 反幻觉约束全景表(56 条, 编号 1-59, 12-14 占位)
 
 ### 全局继承(10条, GenCPT基础)
 

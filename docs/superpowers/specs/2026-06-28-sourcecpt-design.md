@@ -499,7 +499,7 @@ JSON 版本同结构供程序消费。
 加损失评估与 Top 5 风险/修复优先级矩阵(P0/P1/P2/P3+盲区项)。
 
 **QA 三层校验**:
-1. **结构校验(不可 Override)**: manifest 行覆盖率 100% / VULN evidence 五段完整 / CHAIN 结构完整 / 五态无 [ ] 残留 / md+json+sarif 齐全 / 反幻觉 59 条逐条扫违规
+1. **结构校验(不可 Override)**: manifest 行覆盖率 100% / VULN evidence 五段完整 / CHAIN 结构完整 / 五态无 [ ] 残留 / md+json+sarif 齐全 / 反幻觉 56 条逐条扫违规(编号 1-59, 中 12-14 grep 版弃用保留占位)
 2. **语义抽检(可 Override 记原因)**: 抽 3 条 VULN 重新 Read 源码核对行号 / 抽 5 条 CAND 验证 disproof_checked / 抽 2 条 NOVULN 验证推翻稳定
 3. **覆盖矩阵(不可 Override)**: 7 OWASP × 13 入口 × 28 sink 矩阵无空白 / 已证伪必入矩阵 / 盲区 Top 3 显式列
 
@@ -718,7 +718,9 @@ total_loop_tokens: 5亿
 
 ---
 
-## 第八部分: 反幻觉约束全景(59 条)
+## 第八部分: 反幻觉约束全景(56 条)
+
+> 全局 10 条继承 GenCPT; SourceCPT 扩展 49 条(原编号 11-59); 其中编号 12-14 为旧 grep 版专属约束语义审改造后由 15-17 取代保留占位以保持编号稳定性不重赋值。
 
 ### 全局继承(10 条, GenCPT 基础)
 
@@ -941,7 +943,7 @@ total_loop_tokens: 5亿
 
 | id | name | problem | principle | origin | phases |
 |---|------|---------|-----------|--------|--------|
-| anti-hallucination-system | 59 条反幻觉约束 | LLM 编造漏洞证据 | 举证责任在 LLM, 证据链不完整降级 | GenCPT 10+扩展 49 | 全局 |
+| anti-hallucination-system | 56 条反幻觉约束 | LLM 编造漏洞证据 | 举证责任在 LLM, 证据链不完整降级 | GenCPT 10+扩展 46(含 3 占位) | 全局 |
 | disproof-mandatory-check | 证伪必检 | 模式命中不一定是漏洞 | 规则第 6 段证伪必检查 | SourceCPT 原创 | 2a/4a |
 | non-vuln-scenarios-filter | 假阳性场景库前置 | 误报率高 | VULN 判定前对照库, 命中即 [-] | 落地材料+原创 | 6 |
 | triple-library-association | 三库联动 | 静态库不覆盖组合 | 三库各自静态+LLM 动态补盲 | GenCPT 借鉴 | 3 |
@@ -988,4 +990,4 @@ total_loop_tokens: 5亿
 
 ---
 
-## 附录 C: 反幻觉 59 条完整列表见正文第八部分。
+## 附录 C: 反幻觉 56 条完整列表见正文第八部分。
