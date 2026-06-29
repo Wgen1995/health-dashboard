@@ -148,8 +148,8 @@ description: >
 | 顺序 | Phase | 子技能 SKILL.md | 当前实现状态 |
 |------|-------|-----------------|------------|
 | 1 | Phase 0 | `skills/source-map/SKILL.md` | ✅ 已实现（子项目 A） |
-| 2 | Phase 1a | `skills/entry-recon/SKILL.md` | 待子项目 B |
-| 3 | Phase 1b | `skills/authz-map/SKILL.md` | 待子项目 B |
+| 2 | Phase 1a | `skills/entry-recon/SKILL.md` | ✅ 已实现（子项目 B） |
+| 3 | Phase 1b | `skills/authz-map/SKILL.md` | ✅ 已实现（子项目 B） |
 | 4 | Phase 1c | `skills/product-context/SKILL.md` | 待子项目 H (可选) |
 | 5 | Phase 2a | `skills/vuln-rules/SKILL.md` | 待子项目 C |
 | 6 | Phase 2b | `skills/compliance-audit/SKILL.md` | 待子项目 G (可选, --with-compliance) |
