@@ -58,6 +58,7 @@
 | token-hard-stop | Token 硬停止 | Safety Control | LLM 不限跑爆 | 50 亿总量, 触阻塞报告 | loop 借鉴 | 全局 | LOOP_POLICY.md |
 | sibling-scan-limit | Sibling-Scan 防爆 | Safety Control | 横扫瓶颈 | 深度≤2/200/1亿 | SourceCPT 原创 | 5/6 | chain-builder/SKILL.md |
 | doc-confidence-rating | 文档可信度分级 | Safety Control | 文档撒谎误导 | high/medium/low, 不许单判 | 用户提修正 | 1c | product-context/SKILL.md |
+| cross-platform-shell | 跨平台 shell | Portability | 硬死单一 shell 限于单 OS | 优先用 opencode 内置 Glob/Grep/Read/Write 无平台差异, 必调系统时按平台检测选 bash/PowerShell + 双兼容正则子集 | 用户提 Windows 支持 | 全局 | SRC_ACCESS.md §1.1-1.3 |
 
 ---
 
@@ -382,6 +383,21 @@ project → Phase0 → manifest
 **解决问题**: 不同消费者(人读/程序调用/CI 集成/运维跟踪)需要不同格式。
 
 **核心原理**: 每产出并出 markdown + json + SARIF；跟踪表 csv(必产)+xlsx(可选含 3 sheet)；类型必含编号+中文名+子类型三列, 名称必从映射表查填。
+
+### §9.13 跨平台 shell 适配 (Linux/macOS/Windows PowerShell)
+
+**解决问题**: SKILL 硬死单一 shell (如只用 bash) 限于特定操作系统, Windows 原生 PowerShell 不兼容 POSIX 命令。
+
+**核心原理**:
+- **优先 opencode 内置工具**: Glob/Grep/Read/Write 跨平台无差异, 能用这些的全用
+- **必要 fallback 系统命令**: SHA256/行数/git diff 无 opencode 内置, 必调系统 shell 时 LLM 先检测平台 (`$PSVersionTable` 试错), 选 bash 或 PowerShell 对应命令
+- **双兼容正则子集**: entry-types.md / sink-types.md 中 grep 模式避免 POSIX-only 特性(`\b` `\w` `[[:space:]]` 与 PCRE `-P`)与 PowerShell `Select-String` 都能识别
+
+**与 GenCPT 区别**: GenCPT 黑盒全 SSH 命令仅运行于 Linux 远程目标机, 无 Windows 需求; SourceCPT 白盒审计可能在企业 Windows 工作站运行, 必须支持。
+
+**为何必要**: 企业环境 Windows 用户可能不装 WSL2。要求 Windows 用户装 WSL 等于设门槛（C 方案）, 但不要求则文档双轨（A 方案维护翻倍）, 故选 opencode 原生优先 + 双 shell fallback (B+D) 方案——单文档双 fallback, LLM 自动选。
+
+**关联**: SRC_ACCESS §1.1-1.3, 入口/主 SKILL.md 各处的命令示例。
 
 ---
 

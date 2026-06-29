@@ -984,6 +984,12 @@ total_loop_tokens: 5亿
 | sibling-scan-hard-limit | Sibling-Scan 防爆 | 横扫瓶颈 | 深度≤2/200/1 亿上上限 | SourceCPT 原创 | 5/6 |
 | doc-confidence-rating | 文档可信度分级 | 文档撒谎误导 | high/medium/low/unverified, 不许单独判 VULN | 用户提修正 | 1c |
 
+### A.9 Portability(跨平台, 白盒新增) 1 项
+
+| id | name | problem | principle | origin | phases |
+|---|------|---------|-----------|--------|--------|
+| cross-platform-shell | 跨平台 shell | 硬死单一 shell 限于单 OS | 优先 opencode 内置 Glob/Grep/Read/Write 无平台差异, 必调系统时按平台检测选 bash/PowerShell + 双兼容正则子集 | 用户提 Windows 支持 | 全局 |
+
 ---
 
 ## 附录 B: 13 入口 + 28 sink 完整清单见正文第三部分。
