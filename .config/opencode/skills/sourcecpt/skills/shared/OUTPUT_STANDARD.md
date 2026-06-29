@@ -201,8 +201,8 @@
 **字段说明**：
 - `path`：相对 project-path 的路径
 - `lang`：编程语言（java/go/python/js/ts/其他）
-- `loc`：行数（wc -l）
-- `sha256`：文件 SHA256 哈希
+- `loc`：行数（跨平台算, 见 SRC_ACCESS §1.2）
+- `sha256`：文件 SHA256 哈希（跨平台算, 见 SRC_ACCESS §1.2）
 - `state`：五态初值 `[ ]`，由后续 Phase 改写
 - `phase0_category`：`source` / `resource` / `test` / `third_party` / `build_artifact` / `config`
 - `skip_reason`：若 state=`[-]`，必填跳过原因字符串

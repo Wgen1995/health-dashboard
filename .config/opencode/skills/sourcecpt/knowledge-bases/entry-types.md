@@ -1,8 +1,9 @@
 # 入口面类型清单（entry-types）
 
-> Phase 0 引用此文件做 bash grep 识别 13 入口面通道。
+> Phase 0 引用此文件做 Grep 工具/系统 shell grep 识别 13 入口面通道。
 > 约束力：**强制**。每条命中必引 grep 原始输出，禁凭记忆判入口（反幻觉#1）。
 > 配套sink-types.md：sink 索引的 28 类清单。
+> **跨平台**：本文件所有 grep 模式用双兼容正则子集（SRC_ACCESS §1.3），在 bash `grep -E` 与 PowerShell `Select-String` 下通用。
 
 ---
 

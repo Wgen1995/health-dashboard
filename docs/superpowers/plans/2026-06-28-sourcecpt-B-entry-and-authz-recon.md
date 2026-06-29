@@ -143,15 +143,17 @@ entry 节点:
 
 LLM 指令:
 1. Read 文件 src/main/java/com/foo/UserController.java 第 28 行 ±50 行（≤2k token）
-2. 按入口类型补齐字段:
-   - entry_type=rest (REST): 提取 HTTP 方法（GET/POST/...）+ 路径模板 + 方法签名
-   - entry_type=rpc: 提取服务名/方法名/入参类型/序列化协议
-   - entry_type=mq: 提取 topic/queue 名/消费方法入参类型
-   - entry_type=cron: 提取调度表达式/cron 字符串/执行方法入参
-   - entry_type=deser: 提取触发方式（JSON/XML/原生）+ 入参类型 + gadget 链可能性
-   - entry_type=event: 提取事件类型 + 监听方法入参 + 反查事件发布源
-   - entry_type=cli/script: 提取 main 签名 + 参数解析方式（args/argparse/cobra）
-   - entry_type=ws/graphql/webservice/custom_proto/file: 各自类型补齐模板见 entry-types.md
+2. 按入口类型补齐字段（通用规则, 不为特定框架定制）:
+   - 每种 entry_type 在通用规则上根据源码实际使用的框架识别其入口声明方式
+   - 例：entry_type=rest
+     * 若是 Spring 注解: 提取 HTTP 方法（@GetMapping 等）+ 路径模板（@RequestMapping 值）+ 方法签名
+     * 若是 Struts ActionSupport: 提取 execute() 方法签名 + Action 类返回类型(如 String/SUCCESS)
+     * 若是 Flask/Django: 提取 @app.route 路径 + 函数签名
+     * 若是 Express: 提取 app.METHOD 路径 + handler 函数签名
+     * 不许针对单一框架写死规则——LLM 必 Read 源码后按实际框架模式提取
+   - 例：entry_type=cron 跨框架通用: 提取调度表达式(注解/attr) + 执行方法入参类型(若用户输入可达则风险候选)
+   - 例：entry_type=deser 通用: 识别触发方式(JSON/XML/原生) + 入参类型 + gadget 链可能性(若反序列化已知库)
+   - 每类入口的补齐流程都是 Read + 提取, SKILL.md 不硬编码特定框架字段名
 
 3. 输出 JSON:
    {
@@ -346,17 +348,22 @@ MUST 输出（Phase 1b 完成判定）:
 ```json
 {
   "node_type": "authz_config",
-  "config_type": "global_filter|method_secured|interceptor|gateway|struts_interceptor",
-  "path": "src/main/resources/struts.xml",
+  "config_type": "global_filter|method_secured|interceptor|gateway|webfilter",
+  "framework": "spring_security|struts2_interceptor|servlet_filter|other",
+  "path": "src/main/resources/struts.xml 或 SecurityConfig.java",
   "line": 45,
-  "content_snippet": "<interceptor-ref name=\"authc\"/>",
-  "covers_pattern": "/admin/* 或具体 action 命名空间",
-  "covers_action_namespace": "org.apache.struts2.admin.*",
+  "content_snippet": "(配置原文截 ≤200 字)",
+  "covers_pattern": "(该配置声称覆盖的 URL/action 命名空间模式, 引配置原文)",
+  "authentication_required": true,
   "audit_state": "[ ]"
 }
 ```
 
-`covers_pattern` 必引配置文件原文, 不许凭记忆瞎填（反幻觉#2）。若配置含 `<interceptor-stack>` 列出全部 interceptor 名供步骤 2 入口比对。
+**通用规则**：
+- `config_type` 必为通用枚举 `global_filter|method_secured|interceptor|gateway|webfilter` 之一, 不许预定义特定框架名如 `struts_interceptor` 作 config_type（Struts 也归 `interceptor` 类, framework 字段才是细分）
+- `framework` 字段标实际使用的鉴权框架, 可能值: `spring_security|struts2_interceptor|servlet_filter|shiro|oauth|other`
+- `covers_pattern` 必引配置文件原文（反幻觉#2） — Spring Security 是 antMatchers() 抗, Struts 2 是 `<action name="*">` 命名空间, 用具体值, 不许凭记忆瞎填
+- 若配置含 interceptor-stack 列出全部 interceptor 名（Struts）或 antMatchers 路径列表（Spring）供步骤 2 入口比对
 
 ##### 步骤 2：逐入口鉴权状态判定 [T0-T1]
 
@@ -557,12 +564,17 @@ A 已在 /tmp/sourcecpt-test-001/ 产生 Phase 0 数据（78 entry 节点, 40 si
 使用 $entry-recon 对 session /tmp/sourcecpt-test-001 继续, project-path /tmp/opencode/sourcecpt-test-real/struts-2.5.16/src
 ```
 
-观察：
+观察（Struts 仅作测试, SKILL 应通用支持任意框架）：
 - SKILL 应读 entries.json 中 78 个节点
 - 逐个 entry Read 源码文件（path 行 ±50 行）
-- 补齐 signature（Struts ActionSupport Action 类需提取 retn String 类型如 SUCCESS/INPUT + execute() 方法签名）/ param_tree（execute() 通常无参, 或 ActionContext.getContext().getParameters() 提取 request parameters）/ module / validated_summary
-- 按入口类型派发：entry_type=rest 大多对应 Struts 的 ActionSupport, 但 signature 应是 "execute() → String" 不是 Spring REST 路径
+- LLM 按 Read 后识别实际框架模式提取对应字段:
+  * Struts 测试中, 多数 entry 是 ActionSupport 类, signature 应匹配 "execute() → String" 或 "execute(): Action 状态码" 模式
+  * 也可能存在 REST-like 入口（@SMDMethod 等）, signature 应按其实际声明提取
+  * param_tree: execute() 通常无显式参, 但 ActionContext.getContext().getParameters() 可提 request parameters; 或 Action 类 setter 字段（如 setId(Long)）作为隐式参数
+  * module: 按 modules.json 中 module_id 之一
+  * validated_summary: 标 confirmed/missing/mixed 之一
 - 输出 evidence/phase1a/{path-sanitized}.md
+- **这是测试用例, SKILL 本身不针对 Struts 优化** — SKILL 应在任何项目（Spring/Flask/Express/Django...）上都通用
 
 - [ ] **步骤 2：验收产出**
 
@@ -593,19 +605,18 @@ git commit -m "test(sourcecpt): verify Phase 1a entry-recon on Struts 2.5.16 —
 
 接任务 4, 跑 authz-map SKILL 执行 Phase 1b.
 
-- [ ] **步骤 1：触发 Phase 1b**
+- [ ] **步骤 1:触发 Phase 1b**
 
 在 opencode 会话：
 ```
 使用 $authz-map 对 session /tmp/sourcecpt-test-001 继续, project-path /tmp/opencode/sourcecpt-test-real/struts-2.5.16/src
 ```
 
-观察：
-- SKILL 应 Glob struts.xml / struts-*.xml 等全局配置文件 (42 个存在, A Phase 0 已识别)
-- 识别 struts.xml 中的 `<interceptor-ref>` 和 `<interceptor-stack>`
-- 把 struts-default.xml 中的 defaultStack（paramsPrepareParamsStack 等）作为默认鉴权 stack
-- 判定每个 Action 是否在 action 配置中显式声明 interceptor, 还是默认 stack（默认 stack 无 authc 即 unsecured）
-- 78 entry 经过三层鉴权判定产生 authz_state
+观察（Struts 仅作测试用例, SKILL 应通用支持任意鉴权框架）：
+- SKILL 应 Glob 项目所有全局鉴权配置文件（按 AUTHZ_MAP §5 步骤1 通用清单, Spring Security 配置类/Struts Interceptor 配置/Servlet Filter/其他框架 xml 等, 不预设框架）
+- Struts 2.5.16 测试中具体期望: struts.xml 中 `<interceptor-ref>` 命中, defaultStack 默认无 authc interceptor → 多 Action 是 unsecured 候选, 显式声明 authc interceptor 的 Action 是 secured
+- 判定每个 entry 经过三层鉴权（全局/类/方法）产生 authz_state
+- SKILL 本身应不针对 Struts 优化 — 任何项目的 Spring SecurityConfig/Servlet filter/Django middleware 都应能识别
 
 - [ ] **步骤 2：验收**
 

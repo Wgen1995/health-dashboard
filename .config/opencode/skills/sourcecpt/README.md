@@ -54,8 +54,9 @@
 
 - opencode（或兼容的 AI coding agent, 支持 Skill 加载 + Task(general)）
 - 本地源码项目路径（必填）
+- 系统 shell（**跨平台支持**）——Linux/macOS/WSL/Git Bash 的 bash 或 Windows 的 PowerShell 均可。工具调用时 LLM 自动检测平台选对应命令（详见 `skills/shared/SRC_ACCESS.md` §1.2）
 - 可选: python3（Phase 8d 产 xlsx 时调用, 无则回退 csv）
-- 可选: git（mode=increment 时调用 git diff）
+- 可选: git（mode=increment 时调用 git diff, 跨平台原生支持）
 
 ---
 

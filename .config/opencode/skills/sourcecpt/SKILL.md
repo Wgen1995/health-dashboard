@@ -71,7 +71,9 @@ description: >
 1. 检查 `project-path` 存在且为目录 (Read)
 2. Glob 项目根确认至少有源码文件, 否则报错"无可审计源码"
 3. 工具可用性检查:
-   - bash 可用（必须, 执行 grep/find/wc/sha256sum/git diff）
+   - opencode 内置 Glob/Grep/Read/Write 可用（必须, 跨平台原生工具）
+   - 系统 shell 可用（必须 - bash 或 PowerShell 任一）用于算 SHA256/行数/git diff
+   - LLM 必执行平台检测（SRC_ACCESS §1.2）, 按 bash/PowerShell 选对应命令
    - git 可用（mode=increment 必须才能 git diff）
    - python3 可用（仅 Phase 8d 产 xlsx 用, 缺则回退 csv）
 4. 记录环境信息到 session_config.json 的 target 部分扩展:

@@ -6,20 +6,60 @@
 
 ---
 
-## §1 文件读取工具约定
+## §1 文件读取工具约定（跨平台）
 
-| 工具 | 用途 | 输入约定 |
-|------|------|---------|
-| Glob | 列文件路径（按模式） | 模式必含语言扩展名 `*.java/*.go/*.{ts,tsx}`，相对 project-path |
-| bash | 执行 grep/find/wc/sha256sum/git diff | 命令必含 `--include` 限定语言，`-not -path` 排除跳过目录 |
-| Read | 读单文件内容 | 输入必须是绝对路径，offset/limit 用于分块 |
-| Write | 写磁盘产出 | 输入必须是 `{session_dir}/` 工作目录内路径 |
-| Grep | 内容搜索（如已知文件类型） | 模式 + include 限定；若 grep 工具有 -r 支持目录扫描 |
+### §1.1 工具优先级（跨平台优先用 opencode 原生工具）
 
-**强制要求**：
-- Read 文件无编码时默认 UTF-8
-- bash 命令在执行前必输出 echo "命令+时间戳" 留底到 evidence
-- 所有路径使用绝对路径或相对 project-path 的相对路径，不许相对当前工作目录猜测
+SourceCPT 必须支持在 Linux / macOS / Windows 任一平台运行。为实现跨平台, **优先用 opencode 内置工具（Glob/Grep/Read/Write）, 系统 shell 命令仅在 opencode 工具不足以完成任务时调用**。
+
+| 任务 | 优先工具 | 必要 fallback |
+|------|---------|--------------|
+| 列文件路径（按模式递归） | **Glob**（opencode 内置, 无平台差异） | — |
+| 内容搜索（按正则递归） | **Grep**（opencode 内置, 无平台差异） | — |
+| 读文件内容 | **Read**（opencode 内置） | — |
+| 写产出文件 | **Write**（opencode 内置） | — |
+| 算文件 SHA256 | — | **必须调系统 shell**（无 opencode 内置 hash 工具） |
+| 算文件行数 | — | **必须调系统 shell**（无 opencode 内置 wc 工具） |
+| git diff 文件清单（increment 模式） | — | **必须调系统 shell + git** |
+
+### §1.2 系统 shell 调用约定（跨平台自适应）
+
+LLM 执行系统 shell 时必**先检测平台**, 然后选对应命令。SKILL.md 中给出的命令示例默认以 bash 风格书写（便于 Linux/macOS/WSL/Git Bash 用户）, 但 LLM 在 Windows 平台运行时必改用 PowerShell 风格。
+
+#### 跨平台命令映射表
+
+| 任务 | bash 风格 (Linux/macOS/WSL/Git Bash) | PowerShell 风格 (Windows) |
+|------|------------------------------------|--------------------------|
+| 列文件（含排除） | `find {project-path} -type f -name "*.java" -not -path "*/test/*"` | `Get-ChildItem -Path {project-path} -Filter *.java -Recurse \| Where-Object { $_.FullName -notmatch '/test/' -and $_.FullName -notmatch '/target/' }` |
+| 内容 grep | `grep -rn -E "pattern" --include=*.java {project-path}` | `Get-ChildItem -Path {project-path} -Filter *.java -Recurse \| Select-String -Pattern "pattern"` |
+| 算文件 SHA256 | `sha256sum {file}` 或 macOS `shasum -a 256 {file}` | `(Get-FileHash -Algorithm SHA256 {file} \|[Select-Object -ExpandProperty Hash)` |
+| 文件行数 | `wc -l < {file}` | `(Get-Content {file} \| Measure-Object -Line).Lines` |
+| git diff 文件清单 | `git -C {project-path} diff --name-only {changed-since}..HEAD` | 同 bash 风格（git 在 Windows PowerShell 原生支持） |
+
+#### 平台检测指令
+
+LLM 必在调用系统 shell 前**先检测平台**:
+- bash 环境检测: `uname` 或 `echo "$OS"` 输出含 Linux/Darwin/MSYS/MINGW 即用 bash 风格
+- PowerShell 检测: `echo $PSVersionTable` 不报错即用 PowerShell 风格
+
+或更简单: LLM 先试 `$PSVersionTable` 命令。不报错是 PowerShell, 报错（如 "command not found"）是 bash。然后选对应命令。
+
+**重要**: 不许硬编码单一 shell。每条 SKILL.md 命令示例必默认是 bash 但提供 PowerShell 等价。LLM 执行时实时检测平台选对应。
+
+### §1.3 跨平台正则兼容性
+
+`entry-types.md` 与 `sink-types.md` 中的 grep 模式必用**双兼容正则子集**, 在 bash `grep -E` 与 PowerShell `Select-String` 下都能识别:
+
+- 必用基础字符: `|` (or)、`[]` 字符集、`\.` 字面量、`(...)` 分组、`* + ? {n,m}` 量词
+- **禁用** POSIX-only 特性: `\b` 边界、`\w` 字符类、`-P` PCRE 模式
+- **禁用** POSIX 字符类: `[[:space:]]` 等, 改显式 `[ ]` 或 `[ \\t]`
+- 复杂正则需要时拆成多 grep 子模式（避免平台差异）
+
+---
+
+## §2 分块策略（适配 300w 行项目）
+
+### 2.1 按 500 行/块切
 
 ---
 

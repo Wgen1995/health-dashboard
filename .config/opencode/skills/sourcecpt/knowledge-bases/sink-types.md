@@ -1,9 +1,10 @@
 # Sink 类型清单（sink-types）
 
-> Phase 0 引用此文件做 bash grep 识别 28 类敏感操作 sink。
+> Phase 0 引用此文件做 Grep 工具/系统 shell grep 识别 28 类敏感操作 sink。
 > 约束力：**强制**。每条命中必引 grep 原始输出，禁凭记忆判 sink（反幻觉#1）。
 > 与entry-types.md 配套: 入口面 + sink 索引决定 Phase 2a 污点追踪的 source-sink 对。
 > 组织: 按 OWASP Top10 双轨 × CWE 编号, 每 sink 必挂 1 OWASP + 1 CWE。
+> **跨平台**：本文件所有 grep 模式用双兼容正则子集（SRC_ACCESS §1.3），在 bash `grep -E` 与 PowerShell `Select-String` 下通用。
 
 ---
 
