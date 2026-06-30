@@ -1,3 +1,444 @@
+# 健康管理态势感知看板 Skill 改进实现计划（v2）
+
+> **面向 AI 代理的工作者：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 逐任务实现此计划。步骤使用复选框（`- [ ]`）语法来跟踪进度。
+
+**目标：** 修好现有 health-dashboard skill 的 4 个问题（图表截断、分析不准、数值不一致、大数据丢失），重写为全中文 skill 插件。
+
+**架构：** 单 SKILL.md（全流程指令）+ references/（3 个纯文本规范）。AI 用 opencode 原生工具直接操作，不生成临时脚本程序。借鉴 sourceCPT 命令执行灵活度分级——Excel 读取/聚合半开（AI 按环境自适应），写盘/校验死命令，语义分析 AI 自主。
+
+**技术栈：** ECharts 5（CDN）、PowerShell/Python/Node（AI 按环境自适应选一个）、opencode 原生工具（Glob/Grep/Read/Write/Edit/Bash）
+
+**设计规格：** `docs/superpowers/specs/2026-06-30-health-dashboard-redesign-v2.md`
+
+**测试数据：** `/root/health_data/` 下 4 个 Excel 文件
+
+---
+
+## 文件结构
+
+| 文件 | 职责 | 操作 |
+|------|------|------|
+| `skills/health-dashboard/SKILL.md` | Skill 主文件，全流程指令，全中文 | 重写 |
+| `skills/health-dashboard/references/echarts-config.md` | ECharts 防截断配置规范 | 创建 |
+| `skills/health-dashboard/references/aggregate-json-schema.md` | 聚合数据结构定义 | 创建 |
+| `skills/health-dashboard/references/result-excel-structure.md` | 结果 Excel sheet 结构定义 | 保留现有（已是 .md） |
+| `skills/health-dashboard/reference/` | 旧代码骨架目录 | 删除整个目录 |
+
+所有文件位于 `/root/.config/opencode/skills/health-dashboard/` 下。
+
+---
+
+## 任务 1：清理旧文件
+
+**文件：**
+- 删除：`/root/.config/opencode/skills/health-dashboard/reference/`（整个目录）
+
+- [ ] **步骤 1：删除旧 reference 目录**
+
+```bash
+rm -rf /root/.config/opencode/skills/health-dashboard/reference/
+```
+
+- [ ] **步骤 2：创建新 references 目录**
+
+```bash
+mkdir -p /root/.config/opencode/skills/health-dashboard/references/
+```
+
+- [ ] **步骤 3：把现有 result-excel-structure.md 移到新目录**
+
+```bash
+# 旧文件已删除，需重新创建到新目录
+# 如果旧文件还在 reference/ 下则移动，否则在任务3中重新创建
+```
+
+- [ ] **步骤 4：Commit**
+
+```bash
+cd /root && git add -A .config/opencode/skills/health-dashboard/
+git commit -m "refactor(health-dashboard): 删除旧代码骨架目录，创建references目录"
+```
+
+---
+
+## 任务 2：创建 references/echarts-config.md
+
+**文件：**
+- 创建：`/root/.config/opencode/skills/health-dashboard/references/echarts-config.md`
+
+- [ ] **步骤 1：编写 ECharts 配置规范**
+
+完整文件内容：
+
+```markdown
+# ECharts 防截断配置规范
+
+> 本文件定义 health-dashboard 看板中所有 ECharts 图表必须遵循的配置规范。
+> AI 生成 HTML 看板时必须 Read 本文件并严格遵循。
+
+## ECharts 引入
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+```
+
+如用户要求离线，AI 下载 echarts.min.js 内嵌到 HTML 的 `<script>` 标签中。
+
+## 通用防截断配置（所有图表必须应用）
+
+| 配置项 | 值 | 作用 |
+|--------|-----|------|
+| `grid.containLabel` | `true` | 网格自动包含轴标签，不被裁剪 |
+| `grid.left` | `"3%"` 或 `"8%"` | 左侧留白 |
+| `grid.right` | `"4%"` 或 `"18%"`（横向条形图留更多） | 右侧留白 |
+| `grid.top` | `"15%"` | 顶部留白给柱顶标签 |
+| `grid.bottom` | `"8%"` 或 `"12%"` | 底部留白 |
+| `yAxis.boundaryGap` | `["0", "20%"]` | Y轴顶部留20%空间给柱顶标签 |
+| `series.label.show` | `true` | 显示数据标签 |
+| `xAxis.axisLabel.interval` | `0` | 强制显示所有标签 |
+| `xAxis.axisLabel.rotate` | `30`（柱状图）或 `0`（横向条形图） | X轴标签倾斜防重叠 |
+| `xAxis.axisLabel.overflow` | `"truncate"` | 超长标签截断 |
+| `xAxis.axisLabel.width` | `80` | 限制标签宽度 |
+| `tooltip.confine` | `true` | 提示框不溢出容器 |
+| 图表容器 CSS | `min-height: 400px` | 每图最小高度，防矮图挤压 |
+
+## 图表类型 → 配置映射
+
+### 柱状图（医生投入排行等对比场景）
+
+```javascript
+{
+  grid: { containLabel: true, left: '3%', right: '4%', top: '15%', bottom: '8%' },
+  xAxis: {
+    type: 'category',
+    data: [...],
+    axisLabel: { interval: 0, rotate: 30, overflow: 'truncate', width: 80 }
+  },
+  yAxis: { type: 'value', boundaryGap: ['0', '20%'] },
+  series: [{
+    type: 'bar',
+    label: { show: true, position: 'top', fontSize: 11 },
+    itemStyle: { color: '#2E86C1' }
+  }]
+}
+```
+
+### 横向条形图（地区分布等长标签场景）
+
+```javascript
+{
+  grid: { containLabel: true, left: '3%', right: '18%', top: '10%', bottom: '10%' },
+  xAxis: { type: 'value' },
+  yAxis: {
+    type: 'category',
+    data: [...],
+    axisLabel: { width: 100, overflow: 'truncate' }
+  },
+  series: [{
+    type: 'bar',
+    label: { show: true, position: 'right', fontSize: 11 },
+    itemStyle: { color: '#2E86C1' }
+  }]
+}
+```
+
+### 饼图（风险等级构成等占比场景）
+
+```javascript
+{
+  series: [{
+    type: 'pie',
+    radius: ['35%', '65%'],
+    data: [...],
+    label: {
+      show: true,
+      formatter: '{b}: {c} ({d}%)',
+      overflow: 'truncate'
+    },
+    itemStyle: { borderColor: '#fff', borderWidth: 2 }
+  }]
+}
+```
+
+### 折线图（月度趋势等时间序列场景）
+
+```javascript
+{
+  grid: { containLabel: true, left: '3%', right: '4%', top: '15%', bottom: '12%' },
+  xAxis: {
+    type: 'category',
+    data: [...],
+    axisLabel: { interval: 0, rotate: 30 }
+  },
+  yAxis: { type: 'value', boundaryGap: ['0', '15%'] },
+  series: [{
+    type: 'line',
+    symbolSize: 8,
+    label: { show: true, position: 'top' },
+    itemStyle: { color: '#2E86C1' },
+    markPoint: { data: [{ type: 'max' }, { type: 'min' }] }
+  }]
+}
+```
+
+### 堆叠柱状图（风险等级月度趋势等分层场景）
+
+同柱状图配置，series 中每个系列加 `stack: 'total'`。
+
+### 热力图（医生×地区矩阵等交叉分析场景）
+
+```javascript
+{
+  grid: { containLabel: true, left: '10%', right: '12%', top: '8%', bottom: '15%' },
+  xAxis: { type: 'category', data: [...], axisLabel: { interval: 0, rotate: 30 } },
+  yAxis: { type: 'category', data: [...], axisLabel: { width: 60, overflow: 'truncate' } },
+  visualMap: { min: 0, max: N, calculable: true, orient: 'horizontal', left: 'center', bottom: '2%' },
+  series: [{
+    type: 'heatmap',
+    data: [...],
+    label: { show: true }
+  }]
+}
+```
+
+## 配色规范
+
+| 元素 | 颜色 |
+|------|------|
+| 主色 | `#2E86C1`（医蓝） |
+| 深色 | `#1A5276` |
+| 标题栏背景 | `linear-gradient(135deg, #2E86C1, #1A5276)` |
+| 卡片背景 | `#fff` |
+| 卡片阴影 | `0 2px 12px rgba(0,0,0,0.08)` |
+| 文字解读区背景 | `#F4F6F7` |
+| 文字解读区左边框 | `4px solid #2E86C1` |
+| 正文文字 | `#333` |
+| 次要文字 | `#666` |
+
+## 响应式规范
+
+```css
+@media (max-width: 768px) {
+  .chart-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .chart-container { min-height: 400px; }
+}
+```
+
+```javascript
+window.addEventListener('resize', function() {
+  Object.keys(chartInstances).forEach(function(id) {
+    if (chartInstances[id]) chartInstances[id].resize();
+  });
+});
+```
+```
+
+- [ ] **步骤 2：Commit**
+
+```bash
+cd /root && git add .config/opencode/skills/health-dashboard/references/echarts-config.md
+git commit -m "feat(health-dashboard): 添加ECharts防截断配置规范"
+```
+
+---
+
+## 任务 3：创建 references/aggregate-json-schema.md
+
+**文件：**
+- 创建：`/root/.config/opencode/skills/health-dashboard/references/aggregate-json-schema.md`
+
+- [ ] **步骤 1：编写聚合数据结构定义**
+
+完整文件内容：
+
+```markdown
+# 聚合数据结构定义
+
+> 本文件定义 health-dashboard 数据聚合后的结构。
+> AI 生成聚合命令时必须 Read 本文件，输出必须符合此结构。
+
+## 顶层结构
+
+聚合数据包含 4 个顶层字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `meta` | object | 元信息：文件名、总记录数、时间范围、区域/医生列表 |
+| `quality` | object | 数据质量：输入行数、过滤行数、checksum 校验结果 |
+| `aggregations` | object | 各维度聚合数据 |
+| `summary` | object | 机械统计摘要，AI 做语义分析时的数据源 |
+
+## meta 字段
+
+| 子字段 | 类型 | 说明 |
+|--------|------|------|
+| `files` | string[] | 文件名列表 |
+| `total_records` | integer | 总记录数（过滤后） |
+| `date_range` | {start: string, end: string} | 时间范围 |
+| `regions` | string[] | 区域列表 |
+| `doctors` | string[] | 医生列表 |
+| `columns_identified` | object | 各文件列识别结果 |
+
+## quality 字段
+
+| 子字段 | 类型 | 说明 |
+|--------|------|------|
+| `total_in` | integer | 输入总行数 |
+| `total_after_filter` | integer | 过滤后行数 |
+| `filtered_rows` | integer | 被过滤行数 |
+| `filter_reasons` | string[] | 过滤原因列表 |
+| `nulls_per_column` | object | 每列空值数 |
+| `checksum` | {sum_groups: integer, match: boolean} | 校验结果 |
+
+## aggregations 字段
+
+| 子字段 | 类型 | 说明 |
+|--------|------|------|
+| `doctor_workload` | array | 医生投入 `[{name, records, patients, regions}]`，按 records 降序 |
+| `region_distribution` | array | 地区分布 `[{region, records, patients, doctors}]` |
+| `monthly_trend` | array | 月度趋势 `[{month, count, patients}]`，按月份升序 |
+| `risk_level_dist` | array | 风险等级 `[{level, count, pct}]` |
+| `diagnosis_dist` | array | 诊断分布 `[{diagnosis, count, pct}]`，按 count 降序 |
+| `numeric_stats` | object | 数值统计 `{指标名: {mean, median, std, abnormal_rate, abnormal_count}}` |
+| `top3_doctors` | {names: string[], values: integer[]} | 医生 Top3 |
+| `top3_diagnoses` | {names: string[], values: integer[]} | 诊断 Top3 |
+| `doctor_region_matrix` | {doctors, regions, matrix} | 医生×地区矩阵 |
+| `risk_trend` | array | 风险趋势 `[{month, 各风险等级人数}]` |
+
+## summary 字段（机械统计，AI 语义分析的数据源）
+
+summary 是基础机械统计结果，**不是预计算洞察**。交叉洞察、规律发现、异常识别由 AI 语义分析完成。
+
+| 子字段 | 类型 | 说明 |
+|--------|------|------|
+| `total_records` | integer | 总记录数 |
+| `total_patients` | integer | 总患者数 |
+| `total_doctors` | integer | 总医生数 |
+| `total_regions` | integer | 总区域数 |
+| `top5_doctors` | {names: string[], values: integer[]} | 医生 Top5（含具体值） |
+| `top5_diagnoses` | {names: string[], values: integer[]} | 诊断 Top5（含具体值） |
+| `top5_regions` | {names: string[], values: integer[]} | 地区 Top5（含具体值） |
+| `risk_distribution` | {level: count} | 各风险等级人数 |
+| `abnormal_rate_top5` | {names: string[], values: number[]} | 异常率前5指标（含异常率百分比） |
+| `trend_direction` | string | 趋势方向："上升"/"下降"/"持平" |
+| `trend_pct_change` | number | 变化幅度百分比 |
+| `trend_peak_month` | {month: string, count: integer} | 峰值月份 |
+| `trend_valley_month` | {month: string, count: integer} | 低谷月份 |
+
+## 完整示例
+
+```json
+{
+  "meta": {
+    "files": ["门诊记录.xlsx", "健康咨询.xlsx"],
+    "total_records": 570,
+    "date_range": {"start": "2025-01-01", "end": "2025-06-28"},
+    "regions": ["北京朝阳区", "上海浦东新区", "广州天河区"],
+    "doctors": ["张伟明", "李芳华", "王建国"],
+    "columns_identified": {}
+  },
+  "quality": {
+    "total_in": 570,
+    "total_after_filter": 568,
+    "filtered_rows": 2,
+    "filter_reasons": ["BMI>100 过滤1行", "血压负值过滤1行"],
+    "checksum": {"sum_groups": 568, "match": true}
+  },
+  "aggregations": {
+    "doctor_workload": [
+      {"name": "张伟明", "records": 45, "patients": 38, "regions": 3}
+    ],
+    "top3_doctors": {"names": ["张伟明", "李芳华", "王建国"], "values": [45, 38, 35]}
+  },
+  "summary": {
+    "total_records": 570,
+    "total_patients": 420,
+    "total_doctors": 7,
+    "total_regions": 6,
+    "top5_doctors": {"names": ["张伟明", "李芳华", "王建国", "陈秀英", "刘志强"], "values": [45, 38, 35, 30, 28]},
+    "trend_direction": "上升",
+    "trend_pct_change": 12.5,
+    "trend_peak_month": {"month": "2025-06", "count": 120},
+    "trend_valley_month": {"month": "2025-02", "count": 40}
+  }
+}
+```
+```
+
+- [ ] **步骤 2：Commit**
+
+```bash
+cd /root && git add .config/opencode/skills/health-dashboard/references/aggregate-json-schema.md
+git commit -m "feat(health-dashboard): 添加聚合数据结构定义"
+```
+
+---
+
+## 任务 4：创建 references/result-excel-structure.md
+
+**文件：**
+- 创建：`/root/.config/opencode/skills/health-dashboard/references/result-excel-structure.md`
+
+- [ ] **步骤 1：编写结果 Excel 结构定义**
+
+完整文件内容：
+
+```markdown
+# 结果 Excel 文件结构
+
+> 本文件定义 health-dashboard 结果 Excel 的 sheet 结构。
+> AI 生成结果 Excel 时必须 Read 本文件并遵循。
+
+## Sheet 列表
+
+| Sheet 名 | 内容 | 数据源字段 | 列名 |
+|----------|------|-----------|------|
+| 概览 | 总体统计 | meta + summary | 指标, 数值 |
+| 医生投入 | 医生工作量 | aggregations.doctor_workload | 医生姓名, 记录数, 患者数, 覆盖地区数 |
+| 地区分布 | 地区统计 | aggregations.region_distribution | 地区, 记录数, 患者数, 医生数 |
+| 月度趋势 | 时间趋势 | aggregations.monthly_trend | 月份, 记录数, 患者数 |
+| 风险等级 | 风险构成 | aggregations.risk_level_dist | 风险等级, 人数, 占比(%) |
+| 诊断分布 | 疾病排名 | aggregations.diagnosis_dist | 诊断, 人数, 占比(%) |
+| 指标统计 | 数值统计 | aggregations.numeric_stats | 指标名, 均值, 中位数, 标准差, 异常率(%), 异常人数 |
+| 医生地区矩阵 | 交叉分析 | aggregations.doctor_region_matrix | 首行=地区名, 首列=医生名, 值=记录数 |
+| 风险趋势 | 堆叠趋势 | aggregations.risk_trend | 月份, 低风险, 中风险, 中高风险, 高风险 |
+| 数据质量 | 校验信息 | quality | 项目, 值 |
+
+## 生成规则
+
+1. Sheet 数量随用户选的视图动态增减
+2. 每个 sheet 首行为列名，后续为数据行
+3. 数值与 HTML 中嵌入的数据、MD 报告完全同源
+4. Excel 写出由 AI 用 opencode 原生工具完成，按实际环境选可用方式
+
+## 各环境写出方式（参考，AI 自适应）
+
+- **Python（如有）**: `pd.DataFrame(data).to_excel(writer, sheet_name='xxx')`
+- **Node.js（如有）**: `xlsx.utils.book_append_sheet(wb, ws, 'xxx')` 然后 `xlsx.writeFile(wb, path)`
+- **PowerShell（Windows 自带）**: 构建 CSV 再转 xlsx，或用 COM 对象 `New-Object -ComObject Excel.Application`
+- **其他方式**: AI 按实际环境选可用方式，不限于以上三种
+```
+
+- [ ] **步骤 2：Commit**
+
+```bash
+cd /root && git add .config/opencode/skills/health-dashboard/references/result-excel-structure.md
+git commit -m "feat(health-dashboard): 添加结果Excel结构定义"
+```
+
+---
+
+## 任务 5：重写 SKILL.md
+
+**文件：**
+- 重写：`/root/.config/opencode/skills/health-dashboard/SKILL.md`
+
+- [ ] **步骤 1：编写完整 SKILL.md**
+
+完整文件内容（全中文，~350 行）：
+
+```markdown
 ---
 name: health-dashboard
 description: >
@@ -446,3 +887,42 @@ AI 聚合前先统计总行数，按规模自动选策略：
 - [ ] Markdown 报告是否包含数据概览、态势总结、数据质量说明？
 - [ ] 异常数据（过滤的行）是否在报告和 HTML 底部说明？
 - [ ] 全部内容是否为中文？
+```
+
+- [ ] **步骤 2：Commit**
+
+```bash
+cd /root && git add .config/opencode/skills/health-dashboard/SKILL.md
+git commit -m "feat(health-dashboard): 重写SKILL.md v2——全中文+AI语义分析+灵活度分级+无脚本程序"
+```
+
+---
+
+## 自检结果
+
+### 规格覆盖度
+
+| 规格章节 | 实现任务 | 状态 |
+|---------|---------|------|
+| 2. 目录结构 | 任务 1（清理+创建目录） | ✓ |
+| 3.1 SKILL.md | 任务 5 | ✓ |
+| 3.2 echarts-config.md | 任务 2 | ✓ |
+| 3.3 aggregate-json-schema.md | 任务 3 | ✓ |
+| 3.4 result-excel-structure.md | 任务 4 | ✓ |
+| 2. 分工（AI 语义分析） | 任务 5 Step 4.1 | ✓ |
+| 2. 命令执行灵活度分级 | 任务 5 命令执行灵活度分级章节 | ✓ |
+| 4. 验收标准 AC1-AC10 | 任务 5 验证检查清单 | ✓ |
+| 6. 大数据处理 | 任务 5 大数据量处理章节 | ✓ |
+| 6.3 防会话压缩三层兜底 | 任务 5 抗会话压缩章节 | ✓ |
+
+无遗漏。
+
+### 占位符扫描
+
+无 TODO/待定。所有步骤包含完整文件内容。
+
+### 类型一致性
+
+- 聚合数据结构在任务 3（schema 定义）和任务 5（SKILL.md 引用）中一致
+- references 文件名在任务 1（目录结构）和任务 5（SKILL.md 引用）中一致
+- ECharts 配置在任务 2（echarts-config.md）和任务 5（SKILL.md 引用）中一致
